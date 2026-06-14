@@ -1,0 +1,10 @@
+anthropic>=0.34.0
+confluent-kafka>=2.3.0
+fastapi>=0.111.0
+uvicorn[standard]>=0.30.0
+openai>=1.40.0
+qdrant-client>=1.10.0
+psycopg2-binary>=2.9.9
+redis>=5.0.0
+prometheus-client>=0.20.0
+pydantic>=2.7.0

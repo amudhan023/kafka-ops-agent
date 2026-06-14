@@ -1,0 +1,40 @@
+groups:
+  - name: kafka_consumer_lag
+    interval: 30s
+    rules:
+      - alert: KafkaConsumerLagHigh
+        expr: kafka_consumer_group_lag_sum > 10000
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Consumer group {{ $labels.consumergroup }} lag is high on {{ $labels.topic }}"
+          description: "Lag of {{ $value }} messages on topic {{ $labels.topic }}"
+
+      - alert: KafkaConsumerLagCritical
+        expr: kafka_consumer_group_lag_sum > 100000
+        for: 2m
+        labels:
+          severity: critical
+        annotations:
+          summary: "CRITICAL: Consumer group {{ $labels.consumergroup }} lag on {{ $labels.topic }}"
+          description: "Lag of {{ $value }} messages — immediate action required"
+
+  - name: kafka_partition_health
+    interval: 60s
+    rules:
+      - alert: KafkaUnderReplicatedPartitions
+        expr: kafka_topic_partition_under_replicated_partition > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Under-replicated partitions detected on {{ $labels.topic }}"
+
+      - alert: KafkaOfflinePartitions
+        expr: kafka_offline_partitions_count > 0
+        for: 1m
+        labels:
+          severity: critical
+        annotations:
+          summary: "Offline Kafka partitions detected"

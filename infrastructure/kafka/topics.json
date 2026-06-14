@@ -1,0 +1,17 @@
+{
+  "topics": [
+    {"name": "orders",           "partitions": 6, "replication": 1, "retention_ms": 604800000},
+    {"name": "payments",         "partitions": 6, "replication": 1, "retention_ms": 604800000},
+    {"name": "inventory",        "partitions": 3, "replication": 1, "retention_ms": 604800000},
+    {"name": "user-events",      "partitions": 6, "replication": 1, "retention_ms": 604800000},
+    {"name": "notifications",    "partitions": 3, "replication": 1, "retention_ms": 604800000},
+
+    {"name": "kafka.ops.lag.detected",         "partitions": 3, "replication": 1, "retention_ms": 2592000000},
+    {"name": "kafka.ops.partition.hotspot",    "partitions": 3, "replication": 1, "retention_ms": 2592000000},
+    {"name": "kafka.ops.analysis.completed",   "partitions": 3, "replication": 1, "retention_ms": 7776000000},
+    {"name": "kafka.ops.scaling.recommended",  "partitions": 3, "replication": 1, "retention_ms": 7776000000},
+
+    {"name": "agent.audit.log",  "partitions": 6, "replication": 1, "retention_ms": 7776000000},
+    {"name": "dead.letter.queue","partitions": 1,  "replication": 1, "retention_ms": 604800000}
+  ]
+}
