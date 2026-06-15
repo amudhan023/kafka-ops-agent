@@ -1,0 +1,47 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Environment & secrets
+.env
+*.env.local
+*.env.*.local
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+htmlcov/
+.coverage
+.coverage.*
+coverage.xml
+
+# Virtual environments
+.venv/
+venv/
+env/
+
+# Docker
+*.log
+
+# IDEs
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Qdrant local storage (if mounted)
+qdrant_storage/
+
+# Jupyter
+.ipynb_checkpoints/
