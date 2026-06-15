@@ -1208,8 +1208,6 @@ sequenceDiagram
 
 ## 20. Technical Highlights
 
-### Why This Project Demonstrates Staff-Level Engineering
-
 <details>
 <summary><strong>Distributed Systems Design</strong></summary>
 
