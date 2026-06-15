@@ -19,26 +19,26 @@
 ## Table of Contents
 
 1. [Problem Statement](#1-problem-statement)
-2. [Solution Overview](#2-solution-overview)
-3. [End-to-End Architecture](#3-end-to-end-architecture)
-4. [Agent Workflow](#4-agent-workflow)
-5. [Execution Sequence Diagram](#5-execution-sequence-diagram)
-6. [AI Agent Internals](#6-ai-agent-internals)
-7. [RAG Architecture](#7-rag-architecture)
-8. [Vector Store Design](#8-vector-store-design)
-9. [Data Flow](#9-data-flow)
-10. [Knowledge Base Design](#10-knowledge-base-design)
-11. [Reasoning Loop](#11-reasoning-loop)
-12. [Agent State Machine](#12-agent-state-machine)
-13. [Error Handling & Reliability](#13-error-handling--reliability)
-14. [Scalability Architecture](#14-scalability-architecture)
-15. [Security Architecture](#15-security-architecture)
-16. [Observability Stack](#16-observability-stack)
-17. [Project Structure](#17-project-structure)
-18. [Deployment Architecture](#18-deployment-architecture)
-19. [Example Walkthrough](#19-example-walkthrough)
-20. [Technical Highlights](#20-technical-highlights)
-21. [Quick Start](#21-quick-start)
+2. [Quick Start](#2-quick-start)
+3. [Solution Overview](#3-solution-overview)
+4. [End-to-End Architecture](#4-end-to-end-architecture)
+5. [Agent Workflow](#5-agent-workflow)
+6. [Execution Sequence Diagram](#6-execution-sequence-diagram)
+7. [AI Agent Internals](#7-ai-agent-internals)
+8. [RAG Architecture](#8-rag-architecture)
+9. [Vector Store Design](#9-vector-store-design)
+10. [Data Flow](#10-data-flow)
+11. [Knowledge Base Design](#11-knowledge-base-design)
+12. [Reasoning Loop](#12-reasoning-loop)
+13. [Agent State Machine](#13-agent-state-machine)
+14. [Error Handling & Reliability](#14-error-handling-reliability)
+15. [Scalability Architecture](#15-scalability-architecture)
+16. [Security Architecture](#16-security-architecture)
+17. [Observability Stack](#17-observability-stack)
+18. [Project Structure](#18-project-structure)
+19. [Deployment Architecture](#19-deployment-architecture)
+20. [Example Walkthrough](#20-example-walkthrough)
+21. [Technical Highlights](#21-technical-highlights)
 22. [Future Roadmap](#22-future-roadmap)
 
 ---
@@ -80,7 +80,138 @@ Total: 28–70 minutes                          Total: < 10 seconds
 
 ---
 
-## 2. Solution Overview
+## 2. Quick Start
+
+### Prerequisites
+
+| Requirement | Version | Notes |
+|---|---|---|
+| Docker Engine | 20.10+ | [Install Docker](https://docs.docker.com/get-docker/) |
+| Docker Compose | v2.x | Bundled with Docker Desktop; verify with `docker compose version` |
+| GNU Make | Any | Verify with `make --version` |
+| Git | Any | For cloning the repository |
+| curl + jq | Any | For querying the REST API during testing |
+| RAM | 8 GB+ available to Docker | 15 services run concurrently |
+
+**Free Ports Required**
+
+The following ports must be available on your machine before running `make demo`:
+
+| Port | Service |
+|---|---|
+| 8207 | Kafka Ops Agent (metrics + health) |
+| 8000 | Kafka Ops API |
+| 8080 | Kafka UI |
+| 3000 | Grafana |
+| 9090 | Prometheus |
+| 9092 | Kafka Broker (external listener) |
+| 5432 | PostgreSQL |
+| 6379 | Redis |
+| 6333 | Qdrant HTTP |
+
+**API Keys Required**
+
+| Variable | Provider | Purpose |
+|---|---|---|
+| `ANTHROPIC_API_KEY` | [console.anthropic.com](https://console.anthropic.com/) | Claude Sonnet 4.6 — generates risk-ranked scaling recommendations via tool use |
+| `OPENAI_API_KEY` | [platform.openai.com](https://platform.openai.com/) | `text-embedding-3-large` — powers the RAG knowledge retrieval pipeline |
+
+> **Note:** Both keys are required. The agent will fail to start without `ANTHROPIC_API_KEY`, and the knowledge seeder (which populates Qdrant) will fail without `OPENAI_API_KEY`.
+
+The following have working defaults in `docker-compose.yml` and do not need to be changed for local development:
+
+```
+POSTGRES_USER=kafka_ops
+POSTGRES_PASSWORD=kafka_ops_secret
+GRAFANA_PASSWORD=admin
+```
+
+### Setup
+
+```bash
+# Clone the repository
+git clone https://github.com/amudhan023/kafka-ops-agent
+cd kafka-ops-agent
+
+# Configure environment
+cp .env.example .env
+# Open .env and set ANTHROPIC_API_KEY and OPENAI_API_KEY
+
+# Build images, seed the knowledge base, and start all 15 services
+make demo
+
+# Or run detached in the background
+make demo-detached
+```
+
+The first run takes 2–3 minutes: Docker builds all images, the knowledge seeder chunks and embeds 40 incidents and 12 runbooks into Qdrant, and Kafka creates all 11 topics. Subsequent starts are fast.
+
+### Service Endpoints
+
+| Service | URL | Description |
+|---|---|---|
+| Kafka Ops Agent | http://localhost:8207/health | Agent health + Prometheus metrics at `/metrics` |
+| Kafka Ops API | http://localhost:8000/analyses | Analysis results REST API |
+| Kafka UI | http://localhost:8080 | Topic + consumer group browser |
+| Grafana | http://localhost:3000 | `kafka-ops-overview` dashboard (login: admin / admin) |
+| Prometheus | http://localhost:9090 | Raw metrics + active alert status |
+| Qdrant UI | http://localhost:6333/dashboard | Vector store browser — inspect embedded incidents and runbooks |
+
+### Watch the Agent Work
+
+```bash
+# Follow agent logs in real time
+make logs
+
+# Follow all 15 service logs
+make logs-all
+
+# Check consumer group lag directly in Kafka
+make lag
+
+# List all Kafka topics
+make topics
+
+# Trigger a failure scenario manually
+docker compose exec failure-injector python -c "
+from failure_scenarios import scenario_consumer_lag_spike
+scenario_consumer_lag_spike().apply()
+"
+
+# Query the 5 most recent analyses
+curl http://localhost:8000/analyses?limit=5 | jq .
+
+# Query CRITICAL analyses only
+curl "http://localhost:8000/analyses?limit=20&severity=CRITICAL" | jq .
+
+# Query latest recommendations
+curl http://localhost:8000/recommendations?limit=10 | jq .
+
+# View agent Prometheus metrics
+curl http://localhost:8207/metrics | grep kafka_ops
+```
+
+### Makefile Targets
+
+```bash
+make demo              # Build images and start all 15 services (foreground)
+make demo-detached     # Build images and start all services (background)
+make stop              # Stop all running services (preserves volumes)
+make clean             # Remove containers, volumes, and reset all state
+make logs              # Follow kafka-ops-agent logs
+make logs-all          # Follow all service logs
+make seed              # Re-run knowledge seeder (re-embeds incidents + runbooks)
+make status            # Show all service container status
+make topics            # List all Kafka topics
+make lag               # Show consumer group lag for all groups
+make shell-agent       # Open a bash shell in the kafka-ops-agent container
+make shell-kafka       # Open a bash shell in the Kafka broker container
+make restart-agent     # Restart only the kafka-ops-agent service
+```
+
+---
+
+## 3. Solution Overview
 
 ```mermaid
 flowchart LR
@@ -138,7 +269,7 @@ flowchart LR
 
 ---
 
-## 3. End-to-End Architecture
+## 4. End-to-End Architecture
 
 ```mermaid
 flowchart TD
@@ -222,7 +353,7 @@ flowchart TD
 
 ---
 
-## 4. Agent Workflow
+## 5. Agent Workflow
 
 ```mermaid
 flowchart TD
@@ -291,7 +422,7 @@ flowchart TD
 
 ---
 
-## 5. Execution Sequence Diagram
+## 6. Execution Sequence Diagram
 
 ```mermaid
 sequenceDiagram
@@ -368,7 +499,7 @@ sequenceDiagram
 
 ---
 
-## 6. AI Agent Internals
+## 7. AI Agent Internals
 
 ### Component Responsibilities
 
@@ -467,7 +598,7 @@ Claude receives a structured context object and must call exactly one tool:
 
 ---
 
-## 7. RAG Architecture
+## 8. RAG Architecture
 
 ```mermaid
 flowchart TD
@@ -516,7 +647,7 @@ flowchart TD
 
 ---
 
-## 8. Vector Store Design
+## 9. Vector Store Design
 
 ### Qdrant Collection Schema
 
@@ -591,7 +722,7 @@ flowchart LR
 
 ---
 
-## 9. Data Flow
+## 10. Data Flow
 
 ```mermaid
 flowchart TD
@@ -644,7 +775,7 @@ flowchart TD
 
 ---
 
-## 10. Knowledge Base Design
+## 11. Knowledge Base Design
 
 ### Structure
 
@@ -702,7 +833,7 @@ flowchart LR
 
 ---
 
-## 11. Reasoning Loop
+## 12. Reasoning Loop
 
 ```mermaid
 flowchart LR
@@ -725,7 +856,7 @@ The agent follows an **Observe → Think → Plan → Act → Verify → Learn**
 
 ---
 
-## 12. Agent State Machine
+## 13. Agent State Machine
 
 ```mermaid
 stateDiagram-v2
@@ -776,7 +907,7 @@ stateDiagram-v2
 
 ---
 
-## 13. Error Handling & Reliability
+## 14. Error Handling & Reliability
 
 ```mermaid
 sequenceDiagram
@@ -837,7 +968,7 @@ sequenceDiagram
 
 ---
 
-## 14. Scalability Architecture
+## 15. Scalability Architecture
 
 ```mermaid
 flowchart TD
@@ -883,7 +1014,7 @@ flowchart TD
 
 ---
 
-## 15. Security Architecture
+## 16. Security Architecture
 
 ```mermaid
 flowchart TD
@@ -930,7 +1061,7 @@ flowchart TD
 
 ---
 
-## 16. Observability Stack
+## 17. Observability Stack
 
 ```mermaid
 flowchart LR
@@ -978,7 +1109,7 @@ flowchart LR
 
 ---
 
-## 17. Project Structure
+## 18. Project Structure
 
 ```
 kafka-ops-agent/
@@ -1057,7 +1188,7 @@ kafka-ops-agent/
 
 ---
 
-## 18. Deployment Architecture
+## 19. Deployment Architecture
 
 ### Local / Docker Compose
 
@@ -1148,7 +1279,7 @@ HPA Rules:
 
 ---
 
-## 19. Example Walkthrough
+## 20. Example Walkthrough
 
 **Scenario:** Black Friday traffic causes payment processor consumer group to fall behind by 82,000 messages at a velocity of 450 messages per minute.
 
@@ -1206,7 +1337,7 @@ sequenceDiagram
 
 ---
 
-## 20. Technical Highlights
+## 21. Technical Highlights
 
 <details>
 <summary><strong>Distributed Systems Design</strong></summary>
@@ -1268,78 +1399,6 @@ sequenceDiagram
 - **Knowledge seeder pattern:** Separate service initializes vector DB once on startup — idempotent, reruns safely
 
 </details>
-
----
-
-## 21. Quick Start
-
-### Prerequisites
-
-- Docker & Docker Compose
-- `ANTHROPIC_API_KEY` (Claude API)
-- `OPENAI_API_KEY` (embeddings)
-
-### Setup
-
-```bash
-# Clone the repository
-git clone https://github.com/amudhan023/kafka-ops-agent
-cd kafka-ops-agent
-
-# Configure environment
-cp .env.example .env
-# Edit .env with your API keys
-
-# Start the full stack
-make up
-
-# Or directly with Docker Compose
-docker compose up -d
-```
-
-### Service Endpoints
-
-| Service | URL | Description |
-|---|---|---|
-| Kafka Ops Agent | http://localhost:8207/health | Agent health + metrics |
-| Kafka Ops API | http://localhost:8000/analyses | Analysis results |
-| Kafka UI | http://localhost:8080 | Topic + consumer group browser |
-| Grafana | http://localhost:3000 | `kafka-ops-overview` dashboard |
-| Prometheus | http://localhost:9090 | Raw metrics + alert status |
-| Qdrant UI | http://localhost:6333/dashboard | Vector store browser |
-
-### Watch the Agent Work
-
-```bash
-# Tail agent logs
-docker compose logs -f kafka-ops-agent
-
-# Trigger a failure scenario immediately
-docker compose exec failure-injector python -c "
-from failure_scenarios import scenario_consumer_lag_spike
-scenario_consumer_lag_spike().apply()
-"
-
-# Query latest analyses
-curl http://localhost:8000/analyses?limit=5 | jq .
-
-# Query latest recommendations
-curl http://localhost:8000/recommendations?limit=10 | jq .
-
-# View Prometheus metrics
-curl http://localhost:8207/metrics | grep kafka_ops
-```
-
-### Makefile Targets
-
-```bash
-make up          # Start all services
-make down        # Stop all services
-make logs        # Follow agent logs
-make ps          # Show service status
-make seed        # Re-run knowledge seeder
-make clean       # Remove volumes and reset state
-```
 
 ---
 
